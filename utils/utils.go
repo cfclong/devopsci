@@ -1,0 +1,164 @@
+package utils
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"log"
+	"math/rand"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sync"
+	"time"
+)
+
+const (
+	KC_RAND_KIND_NUM   = 0
+	KC_RAND_KIND_LOWER = 1
+	KC_RAND_KIND_UPPER = 2
+	KC_RAND_KIND_ALL   = 3
+)
+
+func Krand(size int, kind int) []byte {
+	ikind, kinds, result := kind, [][]int{{10, 48}, {26, 97}, {26, 65}}, make([]byte, size)
+	is_all := kind > 2 || kind < 0
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < size; i++ {
+		if is_all {
+			ikind = rand.Intn(3)
+		}
+		scope, base := kinds[ikind][0], kinds[ikind][1]
+		result[i] = uint8(base + rand.Intn(scope))
+	}
+	return result
+}
+
+func MakeToken() string {
+	token := string(Krand(16, KC_RAND_KIND_ALL))
+	return token
+}
+
+func GenerateRandomstring(length int) string {
+	return string(Krand(length, KC_RAND_KIND_ALL))
+}
+
+// Contains ..
+func Contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+// IntContains ..
+func IntContains(s []int64, e int64) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+// EnsureAbs prepends the WorkDir to the given path if it is not an absolute path.
+func EnsureAbs(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(WorkDir(), path)
+}
+
+var (
+	workDir     string
+	workDirOnce sync.Once
+)
+
+// WorkDir returns the absolute path of work directory. It reads the value of envrionment
+// variable GOGS_WORK_DIR. When not set, it uses the directory where the application's
+// binary is located.
+func WorkDir() string {
+	workDirOnce.Do(func() {
+		workDir = filepath.Dir(AppPath())
+	})
+
+	return workDir
+}
+
+var (
+	appPath     string
+	appPathOnce sync.Once
+)
+
+// AppPath returns the absolute path of the application's binary.
+func AppPath() string {
+	appPathOnce.Do(func() {
+		var err error
+		appPath, err = exec.LookPath(os.Args[0])
+		if err != nil {
+			panic("look executable path: " + err.Error())
+		}
+		appPath, err = filepath.Abs(appPath)
+		if err != nil {
+			panic("get absolute executable path: " + err.Error())
+		}
+	})
+
+	return appPath
+}
+
+func PathsIsEqual(path1, path2 string) bool {
+	return GetRootPath(path1) == GetRootPath(path2)
+}
+
+func GetRootPath(path string) string {
+	if path == "" {
+		return "/"
+	}
+	return path
+}
+
+// 验证字符长度
+func IsIllegalLength(s string, min int, max int) bool {
+	if min == -1 {
+		return len(s) > max
+	}
+	if max == -1 {
+		return len(s) <= min
+	}
+	return len(s) < min || len(s) > max
+}
+
+const (
+	VersionMinLen = 0
+	VersionMaxLen = 63
+)
+
+// 正则表达式验证字符合法性
+func Restricted(s, regdata string) bool {
+	validName := regexp.MustCompile(`^` + regdata + `$`)
+	legal := validName.MatchString(s)
+	return legal
+}
+
+// crypto && decrypt
+const (
+	AES_KEY = "12345678abcdefgh"
+	AES_IV  = "abcdefgh12345678"
+)
+
+// CTR 128bit no padding
+func AesEny(plaintext []byte) []byte {
+	var (
+		block cipher.Block
+		err   error
+	)
+	if block, err = aes.NewCipher([]byte(AES_KEY)); err != nil {
+		log.Fatal(err)
+	}
+	stream := cipher.NewCTR(block, []byte(AES_IV))
+	stream.XORKeyStream(plaintext, plaintext)
+	return plaintext
+}

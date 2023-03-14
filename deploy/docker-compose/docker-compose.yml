@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  frontend:
+    image: colynn/devopsci-frontend:latest
+    container_name: "frontend"
+    depends_on:
+      - devopsci
+    restart: always
+    networks:
+        - devopsci-network
+    ports:
+      - "8090:8090"
+    volumes:
+      - "./nginx:/etc/nginx/conf.d"
+
+  devopsci:
+    image: colynn/devopsci:latest
+    container_name: "start"
+    depends_on:
+      - mysql
+    restart: always
+    networks:
+      - devopsci-network
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=prod
+    volumes:
+      - "./conf/app.conf:/start/conf/app.conf"
+      - "./conf/rbac_policy.csv:/start/conf/rbac_policy.csv"
+      - "./conf/k8sconfig:/start/conf/k8sconfig"
+      - "/etc/localtime:/etc/localtime"
+      - "/usr/share/zoneinfo/Asia/Shanghai:/usr/share/zoneinfo/Asia/Shanghai"
+  
+  mysql:
+    image: mysql:5.7.35
+    container_name: mysql
+    networks:
+      - devopsci-network    
+    restart: always
+    volumes:
+        - "./mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf"
+        - "./mysql/data:/var/lib/mysql"
+    environment:
+        MYSQL_DATABASE: start
+        MYSQL_ROOT_PASSWORD: 123456
+    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+
+networks:
+  devopsci-network:
+    driver: bridge

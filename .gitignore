@@ -13,3 +13,33 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+.vscode
+*.log
+*.swp
+.idea
+.DS_Store
+debug
+*.tgz
+
+vendor
+
+/devopsci.exe
+/devopsci
+/cli
+conf/app.local.conf
+# conf/*.csv
+conf/k8sconfig
+web/node_node_modules
+
+# debug
+tmp
+__debug_bin
+
+# deploy
+
+deploy/binary/devopsci*
+deploy/*-release.sh
+deploy/wait-for-it.sh
+
+# docs
+docs/outline-design.md
